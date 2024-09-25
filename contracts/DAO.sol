@@ -15,11 +15,12 @@ contract DAO {
         uint256 amount;
         address payable recipient;
         uint256 votes;
-        bool finalize;
+        bool finalized;
     }
 
     uint256 public proposalCount;
     mapping(uint256 => Proposal) public proposals;
+    mapping ( address => mapping (uint256 => bool)) votes;
 
     event Propose(
         uint id,
@@ -29,6 +30,7 @@ contract DAO {
     );
 
     event Vote(uint256 id, address investor);
+    event Finalize(uint256 id);
 
     constructor(Token _token, uint256 _quorum){
         owner = msg.sender;
@@ -76,8 +78,7 @@ contract DAO {
 
     } 
 
-    mapping ( address => mapping (uint256 => bool)) votes;
-
+    //vote on proposal
     function vote(uint256 _id) external onlyInvestor {
         //fetch proposal from mapping by id 
         Proposal storage proposal = proposals[_id];
@@ -95,22 +96,32 @@ contract DAO {
         emit Vote(_id, msg.sender);
     }
 
+    //finalize proposal & transfer funds
+    function finalizeProposal(uint256 _id) external onlyInvestor{
+        //fetch proposal
+        Proposal storage proposal = proposals[_id];
 
+        //ensure proposal is not already finalized
+        require(proposal.finalized == false, "proposal already finalized");
 
+        //mark as finalized
+        proposal.finalized = true;
 
+        //check that proposal has enough votes
+        require(proposal.votes >= quorum, "must reach quormum to finalize proposal");
 
+        //check that contract has enough ether
+        require(address(this).balance >= proposal.amount);
 
+        //transfer funds security related issues (dont know if transfer took place)
+        //proposal.recipient.transfer(proposal.amount); 
 
+        //transfer funds
+        (bool sent, ) = proposal.recipient.call{ value: proposal.amount}("");
+        require(sent);
 
-
-
-
-
-
-
-
-
-
-
+        //emit event
+        emit Finalize(_id);
+    }
 
 }
